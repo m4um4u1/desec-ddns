@@ -19,12 +19,24 @@ async function getPublicIP(): Promise<string> {
 }
 
 async function updateDesecARecord(ip: string) {
-  const url = `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/${DESEC_RECORD}/A/`;
-  const body = JSON.stringify({
+  let url = `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/${DESEC_RECORD}/A/`;
+  let body = JSON.stringify({
     subname: DESEC_RECORD,
     records: [ip],
-    ttl: 60
+    ttl: 3600,
+    type: 'A'
   });
+
+  if (!DESEC_RECORD || DESEC_RECORD === '@') {
+    url = `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/.../A/`;
+    body = JSON.stringify({
+      subname: '',
+      records: [ip],
+      ttl: 3600,
+      type: 'A'
+    });
+  }
+
   const res = await fetch(url, {
     method: 'PUT',
     headers: {
