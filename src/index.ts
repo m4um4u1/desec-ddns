@@ -14,28 +14,43 @@ if (!DESEC_TOKEN || !DESEC_DOMAIN) {
 async function getPublicIP(): Promise<string> {
   const res = await fetch('https://api.ipify.org?format=json');
   if (!res.ok) throw new Error('Failed to fetch public IP');
+  const { ip } = await res.json();
+  return ip;
+}
+
+async function getCurrentARecordIP(): Promise<string | null> {
+  const url = DESEC_RECORD && DESEC_RECORD !== '@'
+      ? `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/${DESEC_RECORD}/A/`
+      : `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/.../A/`;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Token ${DESEC_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Failed to fetch A record: ${res.status} ${err}`);
+  }
+
   const data = await res.json();
-  return data.ip;
+  return data.records && data.records.length > 0 ? data.records[0] : null;
 }
 
 async function updateDesecARecord(ip: string) {
-  let url = `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/${DESEC_RECORD}/A/`;
-  let body = JSON.stringify({
-    subname: DESEC_RECORD,
+  const url = DESEC_RECORD && DESEC_RECORD !== '@'
+      ? `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/${DESEC_RECORD}/A/`
+      : `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/.../A/`;
+
+  const body = JSON.stringify({
+    subname: DESEC_RECORD && DESEC_RECORD !== '@' ? DESEC_RECORD : '',
     records: [ip],
     ttl: 3600,
     type: 'A'
   });
-
-  if (!DESEC_RECORD || DESEC_RECORD === '@') {
-    url = `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/.../A/`;
-    body = JSON.stringify({
-      subname: '',
-      records: [ip],
-      ttl: 3600,
-      type: 'A'
-    });
-  }
 
   const res = await fetch(url, {
     method: 'PUT',
@@ -45,15 +60,18 @@ async function updateDesecARecord(ip: string) {
     },
     body,
   });
+
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Failed to update A record: ${res.status} ${err}`);
   }
+
   console.log(`[${new Date().toISOString()}] A record updated to ${ip}`);
 }
 
-async function mainLoop() {
-  let lastIp: string | null = null;
+async function monitorAndUpdateIP() {
+  let lastIp: string | null = await getCurrentARecordIP();
+
   while (true) {
     try {
       const ip = await getPublicIP();
@@ -67,8 +85,9 @@ async function mainLoop() {
     } catch (err) {
       console.error(`[${new Date().toISOString()}] Error:`, err);
     }
+
     await new Promise(res => setTimeout(res, INTERVAL_SECONDS * 1000));
   }
 }
 
-mainLoop();
+monitorAndUpdateIP();
