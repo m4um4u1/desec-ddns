@@ -1,18 +1,21 @@
-# Use official Node.js image
-FROM node:20-alpine
+# Build stage
+FROM node:20-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files and install dependencies
+COPY package.json package-lock.json ./
+RUN npm install
+
+COPY src .
+RUN npm run build
+
+# Runtime stage
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/dist ./dist
 COPY package.json package-lock.json ./
 RUN npm install --production
 
-# Copy source code
-COPY . .
-
-# Build TypeScript
-RUN npm run build
-
-# Run the app
 CMD ["node", "dist/index.js"]
