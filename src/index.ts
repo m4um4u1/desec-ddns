@@ -6,8 +6,8 @@ const DESEC_DOMAIN = process.env.DESEC_DOMAIN;
 const DESEC_RECORD = process.env.DESEC_RECORD;
 const INTERVAL_SECONDS = parseInt(process.env.INTERVAL_SECONDS || '300', 10); // default: 5 minutes
 
-if (!DESEC_TOKEN || !DESEC_DOMAIN || !DESEC_RECORD) {
-  console.error('Missing required environment variables: DESEC_TOKEN, DESEC_DOMAIN, DESEC_RECORD');
+if (!DESEC_TOKEN || !DESEC_DOMAIN) {
+  console.error('Missing required environment variables: DESEC_TOKEN, DESEC_DOMAIN');
   process.exit(1);
 }
 
