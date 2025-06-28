@@ -101,3 +101,27 @@ docker service create \
 - Non-root user in Docker container
 - Dropped capabilities for least privilege
 - Structured logging for better monitoring
+
+## Architecture
+
+The application follows a modular, service-oriented architecture:
+
+```
+src/
+├── config/           # Configuration management
+├── services/         # Core services
+│   ├── ip-provider.ts   # IP address lookup service
+│   └── desec-api.ts     # deSEC API interaction
+├── utils/            # Utility functions
+│   ├── logger.ts        # Logging functionality
+│   └── validators.ts    # Input validation
+├── types/            # Type definitions
+└── index.ts          # Application entry point
+```
+
+This architecture provides:
+- Clear separation of concerns
+- Improved testability
+- Better maintainability
+- Type safety with TypeScript
+- Easier extensibility
