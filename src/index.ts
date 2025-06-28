@@ -1,119 +1,128 @@
-import fetch from 'node-fetch';
+/**
+ * deSEC DDNS Updater
+ * 
+ * A secure tool to update a desec.io A record to the current public IP
+ */
+import { loadConfig } from './config/config';
+import { IpProviderService } from './services/ip-provider';
+import { DesecApiService } from './services/desec-api';
+import logger from './utils/logger';
 
-// Read config from environment variables
-const DESEC_TOKEN = process.env.DESEC_TOKEN;
-const DESEC_DOMAIN = process.env.DESEC_DOMAIN;
-const DESEC_RECORD = process.env.DESEC_RECORD;
-const INTERVAL_SECONDS = parseInt(process.env.INTERVAL_SECONDS || '300', 10); // default: 5 minutes
-
-if (!DESEC_TOKEN || !DESEC_DOMAIN) {
-  console.error('Missing required environment variables: DESEC_TOKEN, DESEC_DOMAIN');
-  process.exit(1);
-}
-
-async function getPublicIP(): Promise<string> {
-  try {
-    const res = await fetch('https://api.ipify.org?format=json');
-    if (!res.ok) throw new Error('Failed to fetch public IP');
-    const { ip } = await res.json();
-    return ip;
-  } catch (err) {
-    console.error(`[${new Date().toISOString()}] Error fetching public IP:`, err);
-    throw err;
+/**
+ * Main application class
+ */
+class DesecDdnsUpdater {
+  private config = loadConfig();
+  private ipProviderService: IpProviderService;
+  private desecApiService: DesecApiService;
+  
+  constructor() {
+    this.ipProviderService = new IpProviderService(this.config);
+    this.desecApiService = new DesecApiService(this.config);
+    
+    // Setup global error handlers
+    this.setupErrorHandlers();
   }
-}
-
-async function getCurrentARecordIP(): Promise<string | null> {
-  try {
-    const url = DESEC_RECORD && DESEC_RECORD !== '@'
-        ? `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/${DESEC_RECORD}/A/`
-        : `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/.../A/`;
-
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Token ${DESEC_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
+  
+  /**
+   * Setup global error handlers
+   */
+  private setupErrorHandlers(): void {
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (err) => {
+      logger.error('Uncaught exception', { 
+        error: err.message, 
+        stack: err.stack 
+      });
+      process.exit(1);
     });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Failed to fetch A record: ${res.status} ${err}`);
-    }
-
-    const data = await res.json();
-    return data.records && data.records.length > 0 ? data.records[0] : null;
-  } catch (err) {
-    console.error(`[${new Date().toISOString()}] Error fetching current A record IP:`, err);
-    throw err;
-  }
-}
-
-async function updateDesecARecord(ip: string) {
-  try {
-    const url = DESEC_RECORD && DESEC_RECORD !== '@'
-        ? `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/${DESEC_RECORD}/A/`
-        : `https://desec.io/api/v1/domains/${DESEC_DOMAIN}/rrsets/.../A/`;
-
-    const body = JSON.stringify({
-      subname: DESEC_RECORD && DESEC_RECORD !== '@' ? DESEC_RECORD : '',
-      records: [ip],
-      ttl: 3600,
-      type: 'A'
+    
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason) => {
+      logger.error('Unhandled rejection', { 
+        reason: reason instanceof Error ? reason.message : String(reason),
+        stack: reason instanceof Error ? reason.stack : undefined
+      });
+      process.exit(1);
     });
-
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `Token ${DESEC_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body,
+  }
+  
+  /**
+   * Start the monitoring and update process
+   */
+  async start(): Promise<void> {
+    logger.info('Starting deSEC DDNS updater', { 
+      domain: this.config.desecDomain, 
+      record: this.config.desecRecord 
     });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Failed to update A record: ${res.status} ${err}`);
-    }
-
-    console.log(`[${new Date().toISOString()}] A record updated to ${ip}`);
-  } catch (err) {
-    console.error(`[${new Date().toISOString()}] Error updating A record:`, err);
-    throw err;
+    
+    await this.monitorAndUpdateIP();
   }
-}
-
-async function monitorAndUpdateIP() {
-  let lastIp: string | null;
-
-  try {
-    lastIp = await getCurrentARecordIP();
-  } catch (err) {
-    console.error(`[${new Date().toISOString()}] Failed to retrieve initial A record IP, setting lastIp to null`);
-    lastIp = null;
-  }
-
-  while (true) {
+  
+  /**
+   * Monitor and update IP address
+   */
+  private async monitorAndUpdateIP(): Promise<void> {
+    let lastIp: string | null = null;
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
+    
+    // Initial fetch of current A record
     try {
-      const ip = await getPublicIP();
-      if (ip !== lastIp) {
-        console.log(`[${new Date().toISOString()}] IP changed: ${lastIp} -> ${ip}`);
-        await updateDesecARecord(ip);
-        lastIp = ip;
-      } else {
-        console.log(`[${new Date().toISOString()}] IP unchanged (${ip}), no update needed.`);
-      }
+      lastIp = await this.desecApiService.getCurrentARecordIP();
+      logger.info('Initial A record IP fetched', { ip: lastIp });
+      consecutiveErrors = 0;
     } catch (err) {
-      console.error(`[${new Date().toISOString()}] Error:`, err);
-      process.exit(1); // Terminate the process on error
+      logger.error('Failed to retrieve initial A record IP', { 
+        error: err instanceof Error ? err.message : String(err) 
+      });
+      // Continue with lastIp as null
     }
-
-    await new Promise(res => setTimeout(res, INTERVAL_SECONDS * 1000));
+    
+    // Main monitoring loop
+    while (true) {
+      try {
+        // Get current public IP
+        const ip = await this.ipProviderService.getPublicIP();
+        
+        // Check if IP has changed
+        if (ip !== lastIp) {
+          logger.info('IP address change detected', { oldIp: lastIp, newIp: ip });
+          await this.desecApiService.updateARecord(ip);
+          lastIp = ip;
+        } else {
+          logger.info('IP unchanged, no update needed', { ip });
+        }
+        
+        // Reset error counter on success
+        consecutiveErrors = 0;
+      } catch (err) {
+        consecutiveErrors++;
+        logger.error('Error in monitoring cycle', { 
+          error: err instanceof Error ? err.message : String(err),
+          consecutiveErrors,
+          maxConsecutiveErrors: MAX_CONSECUTIVE_ERRORS
+        });
+        
+        // Only exit if we have too many consecutive errors
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          logger.error(`Too many consecutive errors (${consecutiveErrors}), exiting`);
+          process.exit(1);
+        }
+      }
+      
+      // Wait for next check interval
+      logger.debug(`Waiting ${this.config.intervalSeconds} seconds until next check`);
+      await new Promise(resolve => setTimeout(resolve, this.config.intervalSeconds * 1000));
+    }
   }
 }
 
-monitorAndUpdateIP().catch(err => {
-  console.error(`[${new Date().toISOString()}] Unhandled error occurred:`, err);
-  process.exit(1); // Terminate the process on unhandled error
+// Create and start the application
+const app = new DesecDdnsUpdater();
+app.start().catch(err => {
+  logger.error('Fatal error in main process', { 
+    error: err instanceof Error ? err.message : String(err) 
+  });
+  process.exit(1);
 });
