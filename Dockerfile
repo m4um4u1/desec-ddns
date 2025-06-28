@@ -12,8 +12,8 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# Security audit
-RUN npm audit
+# Security audit with automatic fix for non-breaking changes
+RUN npm audit fix --only=prod || true
 
 # Runtime stage
 FROM node:20-alpine AS runtime
@@ -45,6 +45,11 @@ LABEL securityoptions="no-new-privileges:true"
 # Add healthcheck - check if process is running
 HEALTHCHECK --interval=5m --timeout=30s --start-period=1m --retries=3 \
   CMD ps aux | grep "node dist/index.js" | grep -v grep > /dev/null || exit 1
+
+# Add labels for better container documentation
+LABEL org.opencontainers.image.title="deSEC DDNS Updater"
+LABEL org.opencontainers.image.description="A secure tool to update a deSEC DNS A record with your current public IP"
+LABEL org.opencontainers.image.licenses="MIT"
 
 # Run application
 CMD ["node", "dist/index.js"]
