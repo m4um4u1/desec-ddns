@@ -80,7 +80,11 @@ docker service create \
 
 ## How it works
 
-- Fetches the current public IP using multiple providers (ipify.org, ifconfig.me, ipinfo.io, icanhazip.com)
+- Fetches the current public IP using multiple privacy-focused providers:
+  - ipify.org (open-source service that claims not to store visitor data)
+  - ident.me (minimalist service)
+  - wtfismyip.com (has a privacy policy stating they minimize logging)
+  - ip.rootnet.in (minimalist service)
 - Validates the IP address format before using it
 - Updates the specified A record in desec.io using their API with retry logic
 - Uses structured logging for better monitoring and debugging

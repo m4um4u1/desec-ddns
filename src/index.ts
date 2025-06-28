@@ -137,12 +137,20 @@ function isValidIPv4(ip: string): boolean {
   return validator.isIP(ip, 4);
 }
 
-// Multiple IP providers for redundancy
+// Multiple IP providers for redundancy, prioritizing privacy-focused services
+// These providers were selected based on their privacy practices
 const ipProviders = [
+  // ipify claims to be open-source and not store visitor data
   { name: 'ipify', url: 'https://api.ipify.org?format=json', parser: (data: any) => data.ip },
-  { name: 'ifconfig.me', url: 'https://ifconfig.me/ip', parser: (data: string) => data.trim() },
-  { name: 'ipinfo.io', url: 'https://ipinfo.io/ip', parser: (data: string) => data.trim() },
-  { name: 'icanhazip', url: 'https://icanhazip.com', parser: (data: string) => data.trim() }
+  
+  // ident.me is a simple service that doesn't appear to log extensively
+  { name: 'ident.me', url: 'https://ident.me', parser: (data: string) => data.trim() },
+  
+  // wtfismyip.com has a clear privacy policy stating they minimize logging
+  { name: 'wtfismyip', url: 'https://wtfismyip.com/text', parser: (data: string) => data.trim() },
+  
+  // ip.rootnet.in is a minimalist service
+  { name: 'rootnet', url: 'https://ip.rootnet.in', parser: (data: string) => data.trim() }
 ];
 
 // Load configuration first (moved from below)
