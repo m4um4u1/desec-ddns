@@ -4,7 +4,7 @@
 import fetch, { RequestInit } from 'node-fetch';
 import pRetry from 'p-retry';
 import pLimit from 'p-limit';
-import { Config, ApiError, RequestOptions } from '../types';
+import { Config, ApiError, RequestOptions } from '../types/types';
 import logger from '../utils/logger';
 import { isValidIPv4 } from '../utils/validators';
 import { httpsAgent } from './ip-provider';

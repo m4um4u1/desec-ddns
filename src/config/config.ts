@@ -2,7 +2,7 @@
  * Configuration management
  */
 import fs from 'fs';
-import { Config } from '../types';
+import { Config } from '../types/types';
 import logger from '../utils/logger';
 import { isValidDomain, validatePositiveInteger } from '../utils/validators';
 

@@ -109,6 +109,7 @@ The application follows a modular, service-oriented architecture:
 ```
 src/
 ├── config/           # Configuration management
+│   └── config.ts        # Configuration loading and validation
 ├── services/         # Core services
 │   ├── ip-provider.ts   # IP address lookup service
 │   └── desec-api.ts     # deSEC API interaction
@@ -116,6 +117,7 @@ src/
 │   ├── logger.ts        # Logging functionality
 │   └── validators.ts    # Input validation
 ├── types/            # Type definitions
+│   └── types.ts         # Application type definitions
 └── index.ts          # Application entry point
 ```
 

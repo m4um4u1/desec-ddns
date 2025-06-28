@@ -3,7 +3,7 @@
  */
 import validator from 'validator';
 import logger from './logger';
-import { AppError } from '../types';
+import { AppError } from '../types/types';
 
 /**
  * Validate if a string is a valid IPv4 address

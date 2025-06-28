@@ -3,7 +3,7 @@
  * 
  * A secure tool to update a desec.io A record to the current public IP
  */
-import { loadConfig } from './config';
+import { loadConfig } from './config/config';
 import { IpProviderService } from './services/ip-provider';
 import { DesecApiService } from './services/desec-api';
 import logger from './utils/logger';
