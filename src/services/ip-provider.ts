@@ -16,6 +16,9 @@ export const httpsAgent = new Agent({
 
 // Multiple IP providers for redundancy, prioritizing privacy-focused services
 export const ipProviders: IpProvider[] = [
+  // Mullvad VPN's IP check service - privacy-focused and reliable
+  { name: 'mullvad', url: 'https://am.i.mullvad.net/ip', parser: (data: string) => data.trim() },
+  
   // ipify claims to be open-source and not store visitor data
   { name: 'ipify', url: 'https://api.ipify.org?format=json', parser: (data: any) => data.ip },
   
